@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+venv_discord_bot/
+/settings.py
+/*.db
+.idea/
