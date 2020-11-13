@@ -1,7 +1,9 @@
+import asyncio as asyncio
 import discord
 from discord.ext.commands import Bot
-
-from create_db import database, InfoOnUsers, Helmets, Armours, Boots, Weapons, Mobs
+from equipments import helmets, armours, boots, weapons, bracers
+from mobs import mobs
+from create_db import database, InfoOnUsers, Helmets, Armours, Bracers, Boots, Weapons, Mobs
 from settings import settings
 
 
@@ -9,7 +11,7 @@ class RpgBot:
 
     def __init__(self, token):
         database.connect()
-        database.create_tables([InfoOnUsers, Helmets, Armours, Boots, Weapons, Mobs])
+        database.create_tables([InfoOnUsers, Helmets, Armours, Bracers, Boots, Weapons, Mobs])
         self.emojis = ['⚔', '😀', '😄', '😇']
         self.all_members = []
         self.roles = {}
@@ -115,34 +117,13 @@ class RpgBot:
             if await check_to_channel(message):
                 return
             if message.author.id == settings['admin']:
-                helmets_data = [{'name': 'Шлем бомжа',
-                                 'power': 1,
-                                 'protection': 1,
-                                 'endurance': 1}]
-                armours_data = [{'name': 'Броня бомжа',
-                                 'power': 1,
-                                 'protection': 1,
-                                 'endurance': 1}]
-                boots_data = [{'name': 'Ботинки бомжа',
-                               'power': 1,
-                               'protection': 1,
-                               'endurance': 1}]
-                weapons_data = [{'name': 'Палка бомжа',
-                                 'power': 1,
-                                 'protection': 1,
-                                 'endurance': 1}]
-                mobs_data = [{'location': 'Подвал',
-                              'name': 'Крыса',
-                              'health': 5,
-                              'damage': 2,
-                              'experience': 10,
-                              'money': 2}]
-                Helmets.insert_many(helmets_data).execute()
-                Armours.insert_many(armours_data).execute()
-                Boots.insert_many(boots_data).execute()
-                Weapons.insert_many(weapons_data).execute()
-                Mobs.insert_many(mobs_data).execute()
-                await message.channel.send('Бд успешно создана')
+                Helmets.insert_many(helmets).execute()
+                Armours.insert_many(armours).execute()
+                Bracers.insert_many(bracers).execute()
+                Boots.insert_many(boots).execute()
+                Weapons.insert_many(weapons).execute()
+                Mobs.insert_many(mobs).execute()
+                await message.channel.send(f'Бд успешно создана')
             else:
                 await message.channel.send('Ты как вообще об этой команде узнал?. Ну-ка нахер пошел отсюда!!!')
 
@@ -166,18 +147,118 @@ class RpgBot:
                 else:
                     user_data = [{'name': user.name + user.discriminator,
                                   'user_id_discord': user.id,
+                                  'health': 100,
                                   'experience': 0,
                                   'money': 10,
+                                  'healing_potion': 1,
                                   'helmet': 1,
                                   'armour': 1,
+                                  'bracer': 1,
                                   'boots': 1,
                                   'weapon': 1}]
                     InfoOnUsers.insert_many(user_data).execute()
+                await message.channel.send('Пользователи успешно добавлены в БД.')
+
+        async def user_damage_calc(user):
+            for info in InfoOnUsers.select().where(InfoOnUsers.user_id_discord == user.id):
+                damage_armour = info.armour.power
+                damage_boots = info.boots.power
+                damage_bracers = info.bracer.power
+                damage_helmets = info.helmet.power
+                damage_weapons = info.weapon.power
+                total_damage = sum([damage_armour, damage_boots, damage_helmets, damage_bracers, damage_weapons])
+                return total_damage
+
+        async def calc_exp_money(user, mob):
+            exp_money = InfoOnUsers.get(InfoOnUsers.user_id_discord == user.id)
+            exp_money.experience += mob["experience"]
+            exp_money.money += mob["money"]
+            exp_money.save()
+
+        async def battle(message, user, mob):
+            await user.send(f'Начинается сражение с мобом - {message.content}\n'
+                            f'У вас есть 5 секунд, чтобы атаковать в полную силу, иначе пройдет только половина урона')
+            user_damage = await user_damage_calc(user)
+            user_stats = InfoOnUsers.get(InfoOnUsers.user_id_discord == user.id)
+            while not mob['health'] <= 0:
+                fight = await user.send(f'БЕЙ!!!!! У {mob["name"]} всего {mob["health"]} здоровья')
+                await fight.add_reaction('⚔')
+
+                def check_reaction(reaction, user):
+                    return user == message.author and str(reaction.emoji) == '⚔'
+
+                try:
+                    reaction, user = await self.bot.wait_for('reaction_add', timeout=5.0, check=check_reaction)
+                except asyncio.TimeoutError:
+                    await user.send(
+                        f'Ты чего мешкаешь!? {mob["name"]} бьет и наносит {mob["damage"]}. '
+                        f'У тебя осталось {user_stats.health} здоровья')
+                    user_stats.health -= mob["damage"]
+                    user_stats.save()
+                else:
+                    mob['health'] -= user_damage
+                    await user.send(f'Нанесен полный урон в размере {user_damage}')
+                if mob['health'] <= 0:
+                    break
+                else:
+                    user_stats.health -= mob["damage"]
+                    await user.send(f'{mob["name"]} бьет и наносит {mob["damage"]}. '
+                                    f'У тебя осталось {user_stats.health} здоровья')
+                    user_stats.save()
+            await calc_exp_money(user, mob)
+            await user.send(
+                f'Поздравляю, вы победили моба и получили {mob["experience"]} - опыта и {mob["money"]} монет!\n'
+                f'Для повторения боя заново введите команду "/mob" в локации, либо же здесь введите команду '
+                f'"/mob (название локации)"'
+            )
 
         @self.bot.command(pass_context=True)
-        async def mobs(message):
+        async def fight(message, location=None):
+            if location is None:
+                location = message.channel.name
             user = message.author
-            await user.send('Дарова! Вот список мобов в данной локации - ...')
+            mobs = []
+            await user.send(
+                f'Дарова! Вот список мобов в локации "{location}" :')
+            for moby in Mobs.select().where(Mobs.location == location.lower()):
+                await user.send(
+                    f'Моб - {moby.name}, \n'
+                    f'Здоровье - {moby.health}, \n'
+                    f'Дамаг - {moby.damage}, \n'
+                    f'Опыт за убийство - {moby.experience}, \n'
+                    f'Золота за убийство - {moby.money}, \n'
+                    '==============================================='
+                )
+                mobs.append(moby.name)
+            await user.send('Выбирай моба(просто введи его имя)')
+
+            def check_msg(msg):
+                for mob in Mobs.select():
+                    if msg.content.lower() == mob.name:
+                        return msg.content.lower() == mob.name
+
+            m = await self.bot.wait_for('message', check=check_msg)
+            for bei in Mobs.select().where(Mobs.name == m.content.lower()):
+                being = {
+                    'name': bei.name,
+                    'health': bei.health,
+                    'damage': bei.damage,
+                    'experience': bei.experience,
+                    'money': bei.money,
+                }
+            if m:
+                await battle(m, user, being)
+
+        @self.bot.command(pass_context=True)
+        async def heal(message):
+            healing = InfoOnUsers.get(InfoOnUsers.user_id_discord == message.author.id)
+            if healing.healing_potion == 0:
+                await message.channel.send('Хилок нет, иди в жопу')
+            else:
+                healing.healing_potion -= 1
+                healing.health = 100
+                healing.save()
+                await message.channel.send('Ну теперь ты полон сил, поздравляю!')
 
 
 if __name__ == "__main__":
