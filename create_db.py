@@ -14,6 +14,7 @@ class Helmets(Table):
     power = pw.IntegerField(default=1)
     protection = pw.IntegerField(default=1)
     endurance = pw.IntegerField(default=1)
+    price = pw.IntegerField(default=100)
 
     def __str__(self):
         return f'{self.name}'
@@ -25,6 +26,7 @@ class Armours(Table):
     power = pw.IntegerField(default=1)
     protection = pw.IntegerField(default=1)
     endurance = pw.IntegerField(default=1)
+    price = pw.IntegerField(default=100)
 
     def __str__(self):
         return f'{self.name}'
@@ -36,6 +38,7 @@ class Bracers(Table):
     power = pw.IntegerField(default=1)
     protection = pw.IntegerField(default=1)
     endurance = pw.IntegerField(default=1)
+    price = pw.IntegerField(default=100)
 
     def __str__(self):
         return f'{self.name}'
@@ -47,6 +50,7 @@ class Boots(Table):
     power = pw.IntegerField(default=1)
     protection = pw.IntegerField(default=1)
     endurance = pw.IntegerField(default=1)
+    price = pw.IntegerField(default=100)
 
     def __str__(self):
         return f'{self.name}'
@@ -58,6 +62,7 @@ class Weapons(Table):
     power = pw.IntegerField(default=1)
     protection = pw.IntegerField(default=1)
     endurance = pw.IntegerField(default=1)
+    price = pw.IntegerField(default=100)
 
     def __str__(self):
         return f'{self.name}'
@@ -86,6 +91,7 @@ class InfoOnUsers(Table):
     healing_potion = pw.IntegerField(default=1)
     level = pw.IntegerField(default=1)
     factor = pw.IntegerField(default=0)
+    time_for_dead = pw.DateTimeField(null=True)
     stats = pw.ForeignKeyField(Stats, related_name='Характеристики', to_field='user_id', on_delete='cascade',
                                on_update='cascade')
     helmet = pw.ForeignKeyField(Helmets, related_name='Шлем', to_field='id', on_delete='cascade', on_update='cascade')
@@ -97,8 +103,8 @@ class InfoOnUsers(Table):
 
     def __str__(self):
         return f'Имя - {self.name}\n' \
-               f'Здоровье - {self.health}\n' \
-               f'Опыт - {self.experience}\n' \
+               f'Здоровье - {self.health}|{self.max_health}\n' \
+               f'Опыт - {self.experience}|{240 * (2 ** self.factor)}\n' \
                f'Монеты - {self.money}\n' \
                f'Хилок - {self.healing_potion}\n' \
                f'Уровень - {self.level}\n' \
