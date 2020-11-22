@@ -181,8 +181,8 @@ class RpgBot:
         async def stats(message):
             if await check_dead(message.author):
                 pass
-            await user_health_update(message.author)
             await user_stats_update(message.author)
+            await user_health_update(message.author)
             if await check_to_greeting(message):
                 return
             if await check_to_private(message):
@@ -312,8 +312,8 @@ class RpgBot:
         async def fight(message, location=None):
             if await check_dead(message.author):
                 return
-            await user_health_update(message.author)
             await user_stats_update(message.author)
+            await user_health_update(message.author)
             user_stats = InfoOnUsers.get(InfoOnUsers.user_id_discord == message.author.id)
             if location is None:
                 location = message.channel.name
@@ -356,8 +356,8 @@ class RpgBot:
         async def heal(message):
             if await check_dead(message.author):
                 pass
-            await user_health_update(message.author)
             await user_stats_update(message.author)
+            await user_health_update(message.author)
             if await check_to_greeting(message):
                 return
             if await check_to_private(message):
@@ -491,8 +491,8 @@ class RpgBot:
         async def boss(message):
             if await check_dead(message.author):
                 return
-            await user_health_update(message.author)
             await user_stats_update(message.author)
+            await user_health_update(message.author)
             team = message.message.mentions
             overwrites = {
                 message.guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -546,7 +546,6 @@ class RpgBot:
         async def user_stats_update(user):
             user_stats = InfoOnUsers.get(InfoOnUsers.user_id_discord == user.id)
             while user_stats.experience >= 240 * (2 ** user_stats.factor):
-            # if user_stats.experience >= 240 * (2 ** user_stats.factor):
                 stat = Stats.get(Stats.user_id == user_stats.stats_id)
                 stat.power += 1
                 stat.endurance += 1
@@ -639,14 +638,14 @@ class RpgBot:
 
         @self.bot.command(pass_context=True)
         async def shop(message):
-            await user_health_update(message.author)
             await user_stats_update(message.author)
+            await user_health_update(message.author)
             if message.channel.name == 'магазин':
                 await message.author.send(f'Вот вещи, которые вы можете купить - \n')
                 for items in shopping:
                     await message.author.send(f'{items}:')
                     for item in shopping[f'{items}']:
-                        await message.author.send(f'*************<{item["name"]}>, цена - <{item["price"]}>\n'
+                        await message.author.send(f'<**{item["name"]}**>, цена - <{item["price"]}>\n'
                                                   f'Описание:\n'
                                                   f'{item["description"]}')
                 await message.author.send('Чтобы приобрести предмет, введите его название(скопируйте)')
