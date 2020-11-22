@@ -469,14 +469,16 @@ class RpgBot:
                 location = channel.name
 
             being = {}
-            for bei in Mobs.select().where(Mobs.location == location and Mobs.boss == 1):
-                being = {
-                    'name': bei.name,
-                    'health': bei.health,
-                    'damage': bei.damage,
-                    'experience': bei.experience,
-                    'money': bei.money,
-                }
+            for bei in Mobs.select():
+                if bei.location == location and bei.boss == 1:
+                    being = {
+                        'name': bei.name,
+                        'health': bei.health,
+                        'damage': bei.damage,
+                        'experience': bei.experience,
+                        'money': bei.money,
+                    }
+                    break
             await channel.send(
                 f'Вас ждет босс {being["name"]}. Его статы:\n'
                 f'Здоровье - {being["health"]}\n'
