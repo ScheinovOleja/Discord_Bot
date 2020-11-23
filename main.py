@@ -32,7 +32,7 @@ class RpgBot:
             user_stats = InfoOnUsers.get(InfoOnUsers.user_id_discord == user.id)
             if user_stats.health <= 0 and user_stats.time_for_dead is None:
                 await user.send(
-                    "К сожалению, сейчас ты мертв, подожди 24 часа и твое здоровье восстановится, либо же купи хилки")
+                    "К сожалению, сейчас ты мертв, подожди 1 час и твое здоровье восстановится, либо же купи хилки")
                 user_stats.health = 0
                 user_stats.time_for_dead = datetime.now()
                 user_stats.save()
@@ -258,7 +258,7 @@ class RpgBot:
             if total_damage:
                 return total_damage
             elif total_protection:
-                return total_protection / 100
+                return total_protection
             elif total_endurance:
                 return total_endurance * 25
 
@@ -271,7 +271,9 @@ class RpgBot:
         async def battle(message, user, mob, user_stats):
             await user.send(f'Начинается сражение с мобом - **{mob["name"]}**\n'
                             f'У вас есть 5 секунд, чтобы атаковать в полную силу, иначе пройдет только половина урона')
-            mob_damage = mob['damage'] - mob['damage'] * await user_characteristics_calc(user, protect=True)
+            mob_damage = mob['damage'] - await user_characteristics_calc(user, protect=True)
+            if mob_damage <= 0:
+                mob_damage = 1
             user_damage = await user_characteristics_calc(user, power=True)
             while not mob['health'] <= 0:
                 if user_stats.health <= 0:
@@ -288,7 +290,7 @@ class RpgBot:
                 except asyncio.TimeoutError:
                     await user.send(
                         f'Ты чего мешкаешь!? **{mob["name"]}** бьет и наносит {mob_damage} с учетом твоей брони. '
-                        f'У тебя осталось {user_stats.health} здоровья')
+                        f'У тебя осталось {round(user_stats.health, 2)} здоровья')
                     user_stats.health -= mob_damage
                     user_stats.save()
                 else:
@@ -299,7 +301,7 @@ class RpgBot:
                 else:
                     user_stats.health -= mob_damage
                     await user.send(f'**{mob["name"]}** бьет и наносит {mob_damage} с учетом твоей брони. '
-                                    f'У тебя осталось {user_stats.health} здоровья')
+                                    f'У тебя осталось {round(user_stats.health, 2)} здоровья')
                     user_stats.save()
             await calc_exp_money(user, mob)
             await user.send(
@@ -383,7 +385,9 @@ class RpgBot:
             exp_money.save()
 
         async def calc_boss_damage(teammates, mob, user):
-            boss_damage = mob['damage'] - mob['damage'] * user["resist"]
+            boss_damage = mob['damage'] - user["resist"]
+            if boss_damage <= 0:
+                boss_damage = 1
             user_statistic = InfoOnUsers.get(InfoOnUsers.user_id_discord == user["id"])
             user_statistic.health -= boss_damage / len(teammates)
             user_statistic.save()
@@ -425,12 +429,12 @@ class RpgBot:
                         await channel.send(
                             f'Ты куда лезешь? Помешал и теперь босс бьет вас!\n '
                             f'{mob["name"]} бьет и наносит урон с учетом вашей брони.\n '
-                            f'У тебя осталось {user_stats.health} здоровья\n')
+                            f'У тебя осталось {round(user_stats.health, 2)} здоровья\n')
                 except asyncio.TimeoutError:
                     user_stats = await calc_boss_damage(teammates=teammates, mob=mob, user=order_of_attack)
                     await channel.send(
                         f'Ты чего мешкаешь!? {mob["name"]} бьет и наносит урон с учетом вашей брони.\n'
-                        f'У тебя осталось {user_stats.health} здоровья\n')
+                        f'У тебя осталось {round(user_stats.health, 2)} здоровья\n')
                 else:
                     mob['health'] -= total_damage
                     await channel.send(f'Нанесен полный урон в размере {total_damage}')
@@ -555,6 +559,7 @@ class RpgBot:
                 stat.save()
                 user_stats.level += 1
                 user_stats.factor += 1
+                user_stats.experience = 0
                 health = await user_characteristics_calc(user=user, endurance=True)
                 user_stats.max_health = health
                 user_stats.health = health
